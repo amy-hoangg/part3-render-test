@@ -1,10 +1,11 @@
 const express = require('express')
 const morgan = require('morgan')
 const app = express()
+const cors = require('cors')
+
+app.use(cors())
 app.use(express.json()) //dung json parser
 app.use(morgan('tiny'))
-const cors = require('cors')
-app.use(cors())
 app.use(express.static('build'))
 
 let persons = [
