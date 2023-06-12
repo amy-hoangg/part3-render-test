@@ -3,6 +3,23 @@ const morgan = require('morgan')
 const app = express()
 const cors = require('cors')
 
+const mongoose = require('mongoose');
+
+const url = `mongodb+srv://amyishere0602:${password}@cluster0.glogh2t.mongodb.net/mydatabase?retryWrites=true&w=majority`;
+
+mongoose.set('strictQuery', false);
+mongoose.connect(url);
+
+const personSchema = new mongoose.Schema({
+  name: String,
+  number: String,
+});
+
+const Person = mongoose.model('Person', personSchema);
+
+
+
+
 app.use(cors())
 app.use(express.json()) //dung json parser
 app.use(morgan('tiny'))
@@ -39,8 +56,10 @@ app.get('/', (request, response) => {
   response.send('Welcome to the Phonebook API'); // Update with your desired message or HTML content
 });
 
-app.get('/api/persons', (request, response) => {
-    response.json(persons)
+  app.get('/api/persons', (request, response) => {
+    Person.find({}).then(persons => {
+      response.json(persons )
+    })
   })
 
 app.get('/info', (request, response) => {
