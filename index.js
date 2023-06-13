@@ -95,20 +95,74 @@ app.post('/api/persons', (request, response) => {
     return response.status(400).json({ error: 'Name or number is missing' });
   }
 
-  const person = new Person({
-    name: newPerson.name,
-    number: newPerson.number
-  });
+  Person.findOne({ name: newPerson.name })
+    .then(person => {
+      if (person) {
+        // Person already exists, update their number
+        person.number = newPerson.number;
 
-  person.save()
-    .then(savedPerson => {
-      response.json(savedPerson);
+        person.save()
+          .then(updatedPerson => {
+            response.json(updatedPerson);
+          })
+          .catch(error => {
+            console.log('Error updating person:', error.message);
+            response.status(500).json({ error: 'Error updating person' });
+          });
+      } else {
+        // Person doesn't exist, create a new entry
+        const person = new Person({
+          name: newPerson.name,
+          number: newPerson.number
+        });
+
+        person.save()
+          .then(savedPerson => {
+            response.json(savedPerson);
+          })
+          .catch(error => {
+            console.log('Error saving person:', error.message);
+            response.status(500).json({ error: 'Error saving person' });
+          });
+      }
     })
     .catch(error => {
-      console.log('Error saving person:', error.message);
-      response.status(500).json({ error: 'Error saving person' });
+      console.log('Error checking person:', error.message);
+      response.status(500).json({ error: 'Error checking person' });
     });
 });
+
+app.put('/api/persons/:id', (request, response) => {
+  const id = request.params.id;
+  const updatedPerson = request.body;
+
+  Person.findByIdAndUpdate(id, updatedPerson, { new: true })
+    .then(updatedPerson => {
+      if (updatedPerson) {
+        response.json(updatedPerson);
+      } else {
+        response.status(404).json({ error: 'Person not found' });
+      }
+    })
+    .catch(error => {
+      if (error.name === 'CastError') {
+        response.status(400).json({ error: 'Malformatted id' });
+      } else {
+        console.log('Error updating person:', error.message);
+        response.status(500).json({ error: 'Error updating person' });
+      }
+    });
+});
+
+app.use(morgan((req, res) => {
+  //log data sent in the request
+  if (req.method === 'POST') {
+    return JSON.stringify(req.body);
+  }
+  return null;
+}));
+//the json.stringify is built-in method in javascript converted OBJECT -> JSON STRING
+
 
 // Error handler middleware
 app.use((error, request, response, next) => {
