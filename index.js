@@ -1,119 +1,128 @@
-const express = require('express')
-const morgan = require('morgan')
-const app = express()
-const cors = require('cors')
-
+require('dotenv').config();
+const express = require('express');
+const morgan = require('morgan');
+const app = express();
+const cors = require('cors');
+const Person = require('./models/person');
 const mongoose = require('mongoose');
 
-const url = `mongodb+srv://amyishere0602:${password}@cluster0.glogh2t.mongodb.net/mydatabase?retryWrites=true&w=majority`;
-
-mongoose.set('strictQuery', false);
-mongoose.connect(url);
-
-const personSchema = new mongoose.Schema({
-  name: String,
-  number: String,
-});
-
-const Person = mongoose.model('Person', personSchema);
-
-
-
-
-app.use(cors())
-app.use(express.json()) //dung json parser
-app.use(morgan('tiny'))
-app.use(express.static('build'))
-
-let persons = [
-    { 
-      "id": 1,
-      "name": "Arto Hellas", 
-      "number": "040-123456"
-    },
-    { 
-      "id": 2,
-      "name": "Ada Lovelace", 
-      "number": "39-44-5323523"
-    },
-    { 
-      "id": 3,
-      "name": "Dan Abramov", 
-      "number": "12-43-234345"
-    },
-    { 
-      "id": 4,
-      "name": "Mary Poppendieck", 
-      "number": "39-23-6423122"
-    },
-    { 
-        "id": 5,
-        "name": "Mary Poppendieck", 
-        "number": "39-23-6423122"
-      }
-]
-app.get('/', (request, response) => {
-  response.send('Welcome to the Phonebook API'); // Update with your desired message or HTML content
-});
-
-  app.get('/api/persons', (request, response) => {
-    Person.find({}).then(persons => {
-      response.json(persons )
-    })
+// Connect to the MongoDB database
+const url = process.env.MONGODB_URI;
+mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => {
+    console.log('Connected to MongoDB');
   })
+  .catch((error) => {
+    console.log('Error connecting to MongoDB:', error.message);
+  });
+
+app.use(cors());
+app.use(express.json());
+app.use(morgan('tiny'));
+app.use(express.static('build'));
+
+app.get('/', (request, response) => {
+  response.send('Welcome to the Phonebook API');
+});
+
+app.get('/api/persons', (request, response) => {
+  Person.find({})
+    .then(persons => {
+      response.json(persons);
+    })
+    .catch(error => {
+      console.log('Error fetching persons:', error.message);
+      response.status(500).json({ error: 'Error fetching persons' });
+    });
+});
 
 app.get('/info', (request, response) => {
-    const currentTime = new Date()
-    const numberOfEntries = persons.length // o day sao lai dung duoc cai phone book nhi
-
-    const html = `
-    <p>Phonebook has info for ${numberOfEntries} people</p>
-    <p>${currentTime}</p>`
-
-    response.send(html)
-})
+  Person.countDocuments({})
+    .then(count => {
+      const currentTime = new Date();
+      const html = `
+        <p>Phonebook has info for ${count} people</p>
+        <p>${currentTime}</p>
+      `;
+      response.send(html);
+    })
+    .catch(error => {
+      console.log('Error fetching count:', error.message);
+      response.status(500).json({ error: 'Error fetching count' });
+    });
+});
 
 app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    const person = persons.find(person => person.id === id)
-    if(person) 
-    {
-        response.json(person)
-    }
-    else 
-    {
-        response.status(404).send('Person not found')
-    }
-})
+  const id = request.params.id;
+  Person.findById(id)
+    .then(person => {
+      if (person) {
+        response.json(person);
+      } else {
+        response.status(404).json({ error: 'Person not found' });
+      }
+    })
+    .catch(error => {
+      if (error.name === 'CastError') {
+        response.status(400).json({ error: 'Malformatted id' });
+      } else {
+        console.log('Error fetching person:', error.message);
+        response.status(500).json({ error: 'Error fetching person' });
+      }
+    });
+});
 
 app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    persons = persons.filter(person => person.id !== id)
-    response.status(204).end()
-})
+  const id = request.params.id;
+  Person.findByIdAndRemove(id)
+    .then(() => {
+      response.status(204).end();
+    })
+    .catch(error => {
+      if (error.name === 'CastError') {
+        response.status(400).json({ error: 'Malformatted id' });
+      } else {
+        console.log('Error deleting person:', error.message);
+        response.status(500).json({ error: 'Error deleting person' });
+      }
+    });
+});
 
 app.post('/api/persons', (request, response) => {
-    const new_person = request.body
-    if(!new_person.name || !new_person.number)
-    {
-        return response.status(400).json({error: 'Name or number is missing'})
-    }
+  const newPerson = request.body;
 
-    const nameExists = persons.some(person => person.name === new_person.name)
-    if (nameExists) {
-        return response.status(400).json({ error: 'Name must be unique' })
-    }
+  if (!newPerson.name || !newPerson.number) {
+    return response.status(400).json({ error: 'Name or number is missing' });
+  }
 
-    const newPersonObject = {
-        id: Math.floor(Math.random() * 10000) +1,
-        name: new_person.name,
-        number: new_person.number
-    }
+  const person = new Person({
+    name: newPerson.name,
+    number: newPerson.number
+  });
 
-    persons= persons.concat(newPersonObject)
+  person.save()
+    .then(savedPerson => {
+      response.json(savedPerson);
+    })
+    .catch(error => {
+      console.log('Error saving person:', error.message);
+      response.status(500).json({ error: 'Error saving person' });
+    });
+});
 
-    response.json(newPersonObject)
-})
+// Error handler middleware
+app.use((error, request, response, next) => {
+  console.error(error); // Log the error for debugging purposes
+
+  // Handle specific errors
+  if (error.name === 'CastError') {
+    return response.status(400).json({ error: 'Malformatted id' });
+  }
+
+  // General error handling
+  response.status(500).json({ error: 'Internal server error' });
+});
+
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
