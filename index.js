@@ -124,8 +124,7 @@ app.post('/api/persons', (request, response, next) => {
             console.log('Error updating person:', error.message);
             next(error);
           });
-      } 
-      else {
+      } else {
         // Person doesn't exist, create a new entry
         const person = new Person({
           name: newPerson.name,
@@ -147,6 +146,7 @@ app.post('/api/persons', (request, response, next) => {
       next(error);
     });
 });
+
 
 
 app.put('/api/persons/:id', (request, response) => {
@@ -174,6 +174,7 @@ app.put('/api/persons/:id', (request, response) => {
 
 
 // Error handler middleware
+// Error handler middleware
 app.use((error, request, response, next) => {
   console.error(error); // Log the error for debugging purposes
 
@@ -182,9 +183,14 @@ app.use((error, request, response, next) => {
     return response.status(400).json({ error: 'Malformatted id' });
   }
 
+  if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message });
+  }
+
   // General error handling
   response.status(500).json({ error: 'Internal server error' });
 });
+
 
 
 const PORT = process.env.PORT || 3001
