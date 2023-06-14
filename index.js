@@ -21,6 +21,21 @@ app.use(express.json());
 app.use(morgan('tiny'));
 app.use(express.static('build'));
 
+
+// Create a token function for morgan to log request data
+morgan.token('postData', (req, res) => {
+  if (req.method === 'POST') {
+    console.log('Custom token function called');
+    console.log('Request body:', req.body);
+    return JSON.stringify(req.body);
+  }
+  return null;
+});
+
+app.use(
+  morgan(':method :url :status :res[content-length] - :response-time ms :postData')
+);
+
 app.get('/', (request, response) => {
   response.send('Welcome to the Phonebook API');
 });
@@ -88,11 +103,11 @@ app.delete('/api/persons/:id', (request, response) => {
     });
 });
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', (request, response, next) => {
   const newPerson = request.body;
 
-  if (!newPerson.name || !newPerson.number) {
-    return response.status(400).json({ error: 'Name or number is missing' });
+  if (!newPerson.name || newPerson.name.length < 3 || !newPerson.number) {
+    return response.status(400).json({ error: 'Name must be at least three characters long and number is required' });
   }
 
   Person.findOne({ name: newPerson.name })
@@ -107,9 +122,10 @@ app.post('/api/persons', (request, response) => {
           })
           .catch(error => {
             console.log('Error updating person:', error.message);
-            response.status(500).json({ error: 'Error updating person' });
+            next(error);
           });
-      } else {
+      } 
+      else {
         // Person doesn't exist, create a new entry
         const person = new Person({
           name: newPerson.name,
@@ -122,15 +138,16 @@ app.post('/api/persons', (request, response) => {
           })
           .catch(error => {
             console.log('Error saving person:', error.message);
-            response.status(500).json({ error: 'Error saving person' });
+            next(error);
           });
       }
     })
     .catch(error => {
       console.log('Error checking person:', error.message);
-      response.status(500).json({ error: 'Error checking person' });
+      next(error);
     });
 });
+
 
 app.put('/api/persons/:id', (request, response) => {
   const id = request.params.id;
@@ -154,14 +171,6 @@ app.put('/api/persons/:id', (request, response) => {
     });
 });
 
-app.use(morgan((req, res) => {
-  //log data sent in the request
-  if (req.method === 'POST') {
-    return JSON.stringify(req.body);
-  }
-  return null;
-}));
-//the json.stringify is built-in method in javascript converted OBJECT -> JSON STRING
 
 
 // Error handler middleware
